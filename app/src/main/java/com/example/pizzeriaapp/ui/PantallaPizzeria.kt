@@ -135,9 +135,9 @@ fun PantallaPizzeria(encabezado: @Composable () -> Unit, modifier: Modifier = Mo
                     estado = historial.lastOrNull() ?: actual.pedido.estado,
                     historial = historial,
                     aviso = aviso,
-                    alReponer = {
+                    alReintentar = {
                         actual.faltantes.forEach { pizzeria.reponer(it.ingrediente, it.faltante) }
-                        resultado = pizzeria.procesarPedido(actual.pedido, actual.clienteNuevo)
+                        resultado = pizzeria.procesarPedido(actual.pedido, actual.registro)
                     },
                     alEntregar = {
                         aviso = runCatching { actual.repartidor?.entregarPedido(actual.pedido) }
@@ -272,7 +272,7 @@ private fun TarjetaResultado(
     estado: EstadoPedido,
     historial: List<EstadoPedido>,
     aviso: String?,
-    alReponer: () -> Unit,
+    alReintentar: () -> Unit,
     alEntregar: () -> Unit,
     alNuevoPedido: () -> Unit
 ) {
@@ -283,7 +283,12 @@ private fun TarjetaResultado(
     ) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("Pedido #${pedido.id} · ${estado.etiqueta}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            val registro = if (resultado.clienteNuevo) "cliente nuevo" else "ya estaba registrado, no se duplica"
+            val actualizados = resultado.registro.datosActualizados
+            val registro = when {
+                resultado.clienteNuevo -> "cliente nuevo"
+                actualizados.isEmpty() -> "ya registrado, mismos datos de contacto"
+                else -> "ya registrado; se actualizó ${actualizados.joinToString(", ")}"
+            }
             Text("Cliente: ${pedido.cliente.nombre} ($registro)")
             Text("Teléfono: ${pedido.cliente.telefono} · ${pedido.cliente.correo}")
             Text("Entrega: ${pedido.cliente.direccion} (zona ${pedido.cliente.zona})")
@@ -295,22 +300,29 @@ private fun TarjetaResultado(
                 Text("${it.ingrediente}: necesita ${it.necesario} · hay ${it.disponible} → ${it.disponibilidad.etiqueta}")
             }
 
-            if (resultado.faltantes.isNotEmpty()) {
-                Text(
-                    "Stock insuficiente: no se descontó ningún ingrediente.",
-                    color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold
-                )
-                Button(onClick = alReponer, modifier = Modifier.fillMaxWidth()) { Text("Reponer faltantes y reintentar") }
-            } else {
-                HorizontalDivider()
-                Text("Seguimiento: ${historial.joinToString(" → ") { it.etiqueta }}")
-                val repartidor = resultado.repartidor
-                Text(
-                    if (repartidor != null) "Repartidor: ${repartidor.nombre} (zona ${repartidor.zona}, ${repartidor.distanciaKm} km)"
-                    else "Sin repartidores disponibles: el pedido queda Listo en el local."
-                )
-                if (estado == EstadoPedido.EN_CAMINO) {
-                    Button(onClick = alEntregar, modifier = Modifier.fillMaxWidth()) { Text("Registrar entrega") }
+            val repartidor = resultado.repartidor
+            when {
+                resultado.faltantes.isNotEmpty() -> {
+                    Text(
+                        "Stock insuficiente: no se descontó ningún ingrediente y el pedido sigue En preparación.",
+                        color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold
+                    )
+                    Button(onClick = alReintentar, modifier = Modifier.fillMaxWidth()) { Text("Reponer faltantes y reintentar") }
+                }
+                repartidor == null -> {
+                    Text(
+                        "Sin repartidores disponibles: no se descontó stock y el pedido sigue En preparación.",
+                        color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold
+                    )
+                    Button(onClick = alReintentar, modifier = Modifier.fillMaxWidth()) { Text("Reintentar despacho") }
+                }
+                else -> {
+                    HorizontalDivider()
+                    Text("Seguimiento: ${historial.joinToString(" → ") { it.etiqueta }}")
+                    Text("Repartidor: ${repartidor.nombre} (zona ${repartidor.zona}, ${repartidor.distanciaKm} km)")
+                    if (estado == EstadoPedido.EN_CAMINO) {
+                        Button(onClick = alEntregar, modifier = Modifier.fillMaxWidth()) { Text("Registrar entrega") }
+                    }
                 }
             }
             aviso?.let { Text("Validación: $it", color = MaterialTheme.colorScheme.error) }

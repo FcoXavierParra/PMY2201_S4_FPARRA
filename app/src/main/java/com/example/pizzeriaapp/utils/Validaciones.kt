@@ -5,9 +5,7 @@ import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 import java.time.format.ResolverStyle
 
-const val TELEFONO_POR_DEFECTO = "+00 (000) 000-0000"
-const val CORREO_POR_DEFECTO = "correo@invalido.com"
-const val ZONA_POR_DEFECTO = "Centro"
+// Sin valores de relleno para correo, teléfono ni zona: un dato inválido se informa y se vuelve a pedir
 const val CODIGO_PAIS_POR_DEFECTO = "56"
 
 val ZONAS_CON_COBERTURA: Set<String> = setOf("Norte", "Sur", "Centro", "Oriente", "Poniente")
@@ -15,8 +13,14 @@ val ZONAS_CON_COBERTURA: Set<String> = setOf("Norte", "Sur", "Centro", "Oriente"
 // STRICT + uuuu rechaza fechas inexistentes como 31-02-2026
 val FORMATO_FECHA: DateTimeFormatter = DateTimeFormatter.ofPattern("dd-MM-uuuu").withResolverStyle(ResolverStyle.STRICT)
 
-// nombre@dominio.com: usuario, @, dominio y extensión de al menos 2 letras
-private val PATRON_CORREO = Regex("^[a-z0-9._%+-]+@[a-z0-9-]+(\\.[a-z0-9-]+)*\\.[a-z]{2,}$")
+// nombre@dominio.com:
+//  - usuario: segmentos separados por un punto, sin punto al inicio, al final ni dos seguidos
+//  - dominio: segmentos que empiezan y terminan en letra o número (guiones solo al medio)
+//  - extensión de al menos 2 letras
+private const val SEGMENTO_USUARIO = "[a-z0-9_%+-]+"
+private const val SEGMENTO_DOMINIO = "[a-z0-9]+(-+[a-z0-9]+)*"
+private val PATRON_CORREO =
+    Regex("^$SEGMENTO_USUARIO(\\.$SEGMENTO_USUARIO)*@$SEGMENTO_DOMINIO(\\.$SEGMENTO_DOMINIO)*\\.[a-z]{2,}$")
 // Solo dígitos, espacios, guiones, paréntesis y un + inicial
 private val PATRON_TELEFONO_ENTRADA = Regex("^\\+?[\\d\\s()-]+$")
 // Código de país (2) + área (3) + central (3) + número (3 o 4)
@@ -66,5 +70,7 @@ fun formatearNombre(nombre: String?): String =
         ?.ifEmpty { null }
         ?: "Cliente sin nombre"
 
-fun validarZona(zona: String?): String =
-    ZONAS_CON_COBERTURA.find { it.equals(zona?.trim(), ignoreCase = true) } ?: ZONA_POR_DEFECTO
+// Zona con su nombre oficial, o null si no tiene cobertura: no se reemplaza en silencio por otra,
+// quien llama debe informar el problema y pedir una zona válida
+fun validarZona(zona: String?): String? =
+    ZONAS_CON_COBERTURA.find { it.equals(zona?.trim(), ignoreCase = true) }

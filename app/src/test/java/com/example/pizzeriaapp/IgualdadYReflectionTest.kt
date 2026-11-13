@@ -28,6 +28,22 @@ class IgualdadYReflectionTest {
     }
 
     @Test
+    fun `pizza y pizza especial homonimas son productos distintos`() {
+        val normal = pizza("Cuatro Quesos", 9990)
+        val especial = pizzaEspecial("Cuatro Quesos", 11990)
+        assertNotEquals<Producto>(normal, especial)
+
+        // En el detalle del pedido no se agrupan: cada una conserva su precio y su promoción
+        val pedido = Pedido(cliente(), listOf(normal, especial, especial), FECHA_EN_PROMOCION)
+        val detalle = pedido.detalleProductos()
+        assertEquals(2, detalle.size)
+        assertEquals(1, detalle[normal])
+        assertEquals(2, detalle[especial])
+        assertNull(promocionDe(detalle.keys.first()))
+        assertEquals(15, promocionDe(detalle.keys.last())?.porcentaje)
+    }
+
+    @Test
     fun `clientes con el mismo nombre y correo son iguales`() {
         assertEquals(cliente("Ana Pérez", "ana@mail.com"), cliente("ANA PÉREZ", "Ana@Mail.com"))
         assertNotEquals(cliente("Ana Pérez", "ana@mail.com"), cliente("Ana Pérez", "otra@mail.com"))

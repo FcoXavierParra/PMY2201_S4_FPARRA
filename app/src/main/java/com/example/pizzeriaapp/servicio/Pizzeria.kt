@@ -23,8 +23,11 @@ class Pizzeria(
         get() = clientes.cantidad
 
     // Si ya existe un cliente con el mismo nombre y correo, se reutiliza en vez de duplicarlo
+    // y sus datos de contacto se actualizan con los nuevos (ver Cliente.actualizarContacto)
     fun registrarCliente(cliente: Cliente): ResultadoRegistro {
-        clientes.buscar(cliente)?.let { return ResultadoRegistro(it, esNuevo = false) }
+        clientes.buscar(cliente)?.let { existente ->
+            return ResultadoRegistro(existente, esNuevo = false, datosActualizados = existente.actualizarContacto(cliente))
+        }
         clientes.agregar(cliente)
         return ResultadoRegistro(cliente, esNuevo = true)
     }
@@ -62,17 +65,30 @@ class Pizzeria(
     fun despachar(pedido: Pedido): Repartidor? =
         buscarRepartidor(pedido.cliente.zona)?.also { it.tomarPedido(pedido) }
 
-    // Flujo completo de un pedido nuevo: registra (o reutiliza) al cliente, prepara y despacha
+    // Flujo completo de un pedido nuevo: registra (o reutiliza y actualiza) al cliente, prepara y despacha
     fun confirmarPedido(cliente: Cliente, productos: List<Producto>, fecha: LocalDate, notas: String? = null): ResultadoPedido {
         val registro = registrarCliente(cliente)
-        return procesarPedido(Pedido(registro.cliente, productos, fecha, notas), registro.esNuevo)
+        return procesarPedido(Pedido(registro.cliente, productos, fecha, notas), registro)
     }
 
-    // Prepara el pedido (stock todo o nada) y, solo si quedó Listo, le asigna repartidor.
-    // Si faltó stock, el pedido sigue En preparación y se puede volver a procesar tras reponer.
-    fun procesarPedido(pedido: Pedido, clienteNuevo: Boolean = false): ResultadoPedido {
-        val detalle = prepararPedido(pedido)
-        val repartidor = if (pedido.estado == EstadoPedido.LISTO) despachar(pedido) else null
-        return ResultadoPedido(pedido, detalle, repartidor, clienteNuevo)
+    // Verifica TODO antes de modificar algo: stock suficiente y un repartidor disponible.
+    // Solo si se cumplen ambas condiciones descuenta el stock, pasa el pedido a Listo y lo despacha.
+    // Si falla cualquiera, ni el inventario ni el estado cambian (el pedido sigue En preparación),
+    // el resultado informa el motivo real y el mismo pedido se puede volver a procesar.
+    fun procesarPedido(
+        pedido: Pedido,
+        registro: ResultadoRegistro = ResultadoRegistro(pedido.cliente, esNuevo = false)
+    ): ResultadoPedido {
+        check(pedido.estado == EstadoPedido.EN_PREPARACION) {
+            "el pedido #${pedido.id} ya fue procesado (${pedido.estado.etiqueta.lowercase()})"
+        }
+        val detalle = verificarStock(pedido)
+        val stockSuficiente = detalle.all { it.disponibilidad == Disponibilidad.SUFICIENTE }
+        val repartidor = if (stockSuficiente) buscarRepartidor(pedido.cliente.zona) else null
+        if (repartidor != null) {
+            prepararPedido(pedido)
+            repartidor.tomarPedido(pedido)
+        }
+        return ResultadoPedido(pedido, detalle, repartidor, registro)
     }
 }

@@ -17,14 +17,17 @@ abstract class Producto(
     // Lo que contiene el producto (ingredientes de una pizza o productos de un combo)
     open fun composicion(): List<String> = emptyList()
 
-    // == llama a equals(): dos productos son el mismo si coinciden nombre (sin importar mayúsculas) y categoría
+    // == llama a equals(): dos productos son el mismo si coinciden nombre (sin importar mayúsculas),
+    // categoría y clase concreta. La clase distingue una PizzaEspecial (con promoción) de una Pizza
+    // homónima, para que no se agrupen ni se pierda el descuento que corresponde a cada una.
     final override fun equals(other: Any?): Boolean {
         if (this === other) return true
-        if (other !is Producto) return false
+        if (other !is Producto || other.javaClass != javaClass) return false
         return nombre.equals(other.nombre, ignoreCase = true) && categoria == other.categoria
     }
 
-    final override fun hashCode(): Int = 31 * nombre.lowercase().hashCode() + categoria.hashCode()
+    final override fun hashCode(): Int =
+        31 * (31 * nombre.lowercase().hashCode() + categoria.hashCode()) + javaClass.name.hashCode()
 
     override fun toString(): String = "$nombre (${categoria.etiqueta})"
 }

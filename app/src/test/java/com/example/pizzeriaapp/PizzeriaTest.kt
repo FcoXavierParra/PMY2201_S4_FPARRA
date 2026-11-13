@@ -9,7 +9,9 @@ import com.example.pizzeriaapp.modelo.Registro
 import com.example.pizzeriaapp.modelo.Repartidor
 import com.example.pizzeriaapp.servicio.Pizzeria
 import kotlin.test.Test
+import com.example.pizzeriaapp.modelo.Cliente
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertSame
@@ -92,6 +94,47 @@ class PizzeriaTest {
         val reintento = pizzeria.procesarPedido(fallido.pedido)
         assertTrue(reintento.faltantes.isEmpty())
         assertEquals(EstadoPedido.EN_CAMINO, reintento.pedido.estado)
+    }
+
+    @Test
+    fun `despacho fallido sin repartidor no modifica stock ni estado`() {
+        val pizzeria = pizzeria(mapOf("Masa" to 2, "Queso" to 2))   // stock alcanza, pero no hay repartidores
+        val resultado = pizzeria.confirmarPedido(cliente(), listOf(pizza()), FECHA_EN_PROMOCION)
+        assertTrue(resultado.sinRepartidor)
+        assertFalse(resultado.despachado)
+        assertEquals(EstadoPedido.EN_PREPARACION, resultado.pedido.estado)
+        assertEquals(listOf(EstadoPedido.EN_PREPARACION), resultado.pedido.historial())
+        assertEquals(2, pizzeria.inventario.disponible("Masa"))
+        assertEquals(2, pizzeria.inventario.disponible("Queso"))
+    }
+
+    @Test
+    fun `un pedido ya despachado no se vuelve a procesar`() {
+        val pizzeria = pizzeria(mapOf("Masa" to 2, "Queso" to 2), listOf(repartidor("Sur", "Sur", 1.0)))
+        val resultado = pizzeria.confirmarPedido(cliente(), listOf(pizza()), FECHA_EN_PROMOCION)
+        assertFailsWith<IllegalStateException> { pizzeria.procesarPedido(resultado.pedido) }
+        assertEquals(1, pizzeria.inventario.disponible("Masa"))   // se descontó una sola vez
+    }
+
+    @Test
+    fun `cliente registrado con datos nuevos actualiza telefono direccion y zona`() {
+        val pizzeria = pizzeria(emptyMap())
+        val original = Cliente("Ana Pérez", "+56 (912) 345-678", "ana@mail.com", "Calle 1", "Sur")
+        pizzeria.registrarCliente(original)
+
+        val conCambios = Cliente("ANA PÉREZ", "+56 (987) 654-321", "Ana@Mail.com", "Av. Norte 50", "Norte")
+        val registro = pizzeria.registrarCliente(conCambios)
+        assertFalse(registro.esNuevo)
+        assertSame(original, registro.cliente)
+        assertEquals(listOf("teléfono", "dirección", "zona"), registro.datosActualizados)
+        assertEquals("+56 (987) 654-321", original.telefono)
+        assertEquals("Av. Norte 50", original.direccion)
+        assertEquals("Norte", original.zona)
+        assertEquals("Ana Pérez", original.nombre)   // nombre y correo identifican al cliente y no cambian
+        assertEquals(1, pizzeria.cantidadClientes)
+
+        val sinCambios = pizzeria.registrarCliente(conCambios)
+        assertTrue(sinCambios.datosActualizados.isEmpty())
     }
 
     @Test

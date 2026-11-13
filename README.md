@@ -47,7 +47,7 @@ app/src/main/java/com/example/pizzeriaapp/
 ├── utils/                  Validaciones (Regex), Calculos (rangos, descuentos, IVA), Reflexion, Formato
 └── ui/                     PantallaPizzeria (Compose) y theme/ de la plantilla
 app/src/main/res/values/strings.xml   texto de bienvenida (mensaje_bienvenida)
-app/src/test/java/com/example/pizzeriaapp/   38 pruebas unitarias
+app/src/test/java/com/example/pizzeriaapp/   45 pruebas unitarias
 ```
 
 ## Integración de la lógica de semanas anteriores
@@ -59,15 +59,26 @@ app/src/test/java/com/example/pizzeriaapp/   38 pruebas unitarias
 | Menú numerado | Tarjetas por producto con botones − / + (cantidad dentro de 1..100) |
 | Ingreso de cliente con Regex | Campos de texto que validan correo y teléfono mientras se escribe y muestran el teléfono formateado `+56 (XXX) XXX-XXX` |
 | Cálculo del pedido | Resumen en vivo: subtotal, promoción `@Promocionable` (leída con reflection), descuento por volumen, IVA y total |
-| Verificación de stock, despacho y entrega | Botón **Confirmar pedido**: stock todo o nada, asignación de repartidor por zona y distancia, seguimiento de estados y botón **Registrar entrega** |
+| Verificación de stock, despacho y entrega | Botón **Confirmar pedido**: verifica stock y repartidor antes de modificar nada, asigna repartidor por zona y distancia, muestra el seguimiento de estados y el botón **Registrar entrega** |
 | Formato de montos | `utils/Formato.kt`, separado de la presentación |
 | Flujo del pedido en `main()` | `Pizzeria.confirmarPedido()` y `procesarPedido()`: la pantalla solo muestra resultados |
 
 El texto de bienvenida está en `res/values/strings.xml` y lo muestra la función `Greeting` de `MainActivity.kt` (también visible en la vista previa `GreetingPreview`).
 
+## Retroalimentación de la semana 3 aplicada
+
+| Observación | Cambio | Prueba |
+|---|---|---|
+| El correo admitía puntos iniciales, finales o seguidos y guiones en los extremos del dominio | La Regex arma el usuario y el dominio por segmentos: sin punto al inicio, al final ni dos seguidos; cada segmento del dominio empieza y termina en letra o número (`utils/Validaciones.kt`) | `correos limite con puntos o guiones en los extremos se rechazan`, `correos limite validos se aceptan` |
+| Una `PizzaEspecial` se agrupaba con una `Pizza` homónima | `Producto.equals()`/`hashCode()` consideran también la clase concreta: cada una conserva su precio y su promoción en el detalle del pedido | `pizza y pizza especial homonimas son productos distintos` |
+| Al reutilizar un cliente quedaban sus datos de contacto anteriores | Criterio explícito en `Cliente.actualizarContacto()`: nombre y correo identifican al cliente; teléfono, dirección y zona se reemplazan por los del pedido nuevo. La pantalla informa qué campos se actualizaron | `cliente registrado con datos nuevos actualiza telefono direccion y zona` |
+| El despacho podía cambiar stock o estados y luego fallar | `Pizzeria.procesarPedido()` verifica stock **y** repartidor antes de modificar algo; si falta cualquiera, el inventario y el estado no cambian y la pantalla muestra el motivo real con la opción de reintentar | `despacho fallido sin repartidor no modifica stock ni estado`, `un pedido ya despachado no se vuelve a procesar` |
+| EOF devolvía correo y teléfono de relleno | Se eliminaron los valores de relleno (`CORREO_POR_DEFECTO`, `TELEFONO_POR_DEFECTO`, `ZONA_POR_DEFECTO`). En Android no hay entrada estándar: los datos vienen de campos de texto y **Confirmar pedido** queda deshabilitado hasta que todos son válidos | — |
+| Una zona inválida se reemplazaba en silencio por Centro | `validarZona()` devuelve `null` para que quien llama informe y pida otra; en la app la zona se elige entre las zonas con cobertura | `zona invalida no se reemplaza en silencio por otra` |
+
 ## Pruebas
 
-38 pruebas unitarias con `kotlin.test` (JUnit 4): las 34 de la semana 3 adaptadas al nuevo paquete y 4 nuevas para el flujo `confirmarPedido` / `procesarPedido` (incluido reponer stock y reintentar) y para el formato de montos. Todas pasan con `gradlew testDebugUnitTest`.
+45 pruebas unitarias con `kotlin.test` (JUnit 4): las de la semana 3 adaptadas al nuevo paquete, más las del flujo `confirmarPedido` / `procesarPedido` (reponer stock y reintentar, despacho sin repartidor, pedido ya despachado), la actualización de clientes, los correos límite, los productos homónimos y el formato de montos. Todas pasan con `gradlew testDebugUnitTest`.
 
 ## Evidencias
 

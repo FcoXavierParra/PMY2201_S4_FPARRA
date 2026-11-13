@@ -4,7 +4,6 @@ import com.example.pizzeriaapp.modelo.Cliente
 import com.example.pizzeriaapp.modelo.EstadoPedido
 import com.example.pizzeriaapp.modelo.Pedido
 import com.example.pizzeriaapp.modelo.Repartidor
-import com.example.pizzeriaapp.utils.CORREO_POR_DEFECTO
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -70,11 +69,9 @@ class PedidoTest {
     }
 
     @Test
-    fun `notas ausentes y correo por defecto quedan en null`() {
+    fun `notas y repartidor ausentes quedan en null`() {
         val pedido = Pedido(cliente(), listOf(pizza()), FECHA_EN_PROMOCION)
         assertNull(pedido.notas)
         assertNull(pedido.repartidor)
-        val sinCorreo = Cliente("Eva", "+56 (911) 111-111", CORREO_POR_DEFECTO, "Calle 1", "Centro")
-        assertNull(sinCorreo.correoNotificaciones)
     }
 }

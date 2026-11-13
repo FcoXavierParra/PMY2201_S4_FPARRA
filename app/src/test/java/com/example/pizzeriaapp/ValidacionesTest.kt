@@ -25,6 +25,20 @@ class ValidacionesTest {
     }
 
     @Test
+    fun `correos limite con puntos o guiones en los extremos se rechazan`() {
+        listOf(
+            ".ana@mail.com", "ana.@mail.com", "ana..perez@mail.com",     // puntos en el usuario
+            "ana@-mail.com", "ana@mail-.com", "ana@mail..com", "ana@mail.com."  // guiones y puntos en el dominio
+        ).forEach { assertNull(validarCorreo(it), it) }
+    }
+
+    @Test
+    fun `correos limite validos se aceptan`() {
+        assertEquals("juan.perez@mail.com", validarCorreo("juan.perez@mail.com"))
+        assertEquals("a_b+promo@sub.mi-dominio.cl", validarCorreo("a_b+promo@sub.mi-dominio.cl"))
+    }
+
+    @Test
     fun `telefonos se formatean como +XX (XXX) XXX-XXXX`() {
         assertEquals("+56 (912) 345-678", formatearTelefono("912345678"))            // 9 dígitos: se asume +56
         assertEquals("+56 (912) 345-678", formatearTelefono("+56 9 1234 5678"))
@@ -53,11 +67,16 @@ class ValidacionesTest {
     }
 
     @Test
-    fun `nombre y zona con valores por defecto`() {
+    fun `nombre se normaliza`() {
         assertEquals("Ana Pérez", formatearNombre("  ana   PÉREZ "))
         assertEquals("Cliente sin nombre", formatearNombre(null))
-        assertEquals("Sur", validarZona("sur"))
-        assertEquals("Centro", validarZona("Marte"))
-        assertEquals("Centro", validarZona(null))
+    }
+
+    @Test
+    fun `zona invalida no se reemplaza en silencio por otra`() {
+        assertEquals("Sur", validarZona(" sur "))
+        assertNull(validarZona("Marte"))
+        assertNull(validarZona(""))
+        assertNull(validarZona(null))
     }
 }
